@@ -20,9 +20,12 @@ class RandomDice {
   }
 }
 
-var root = {
-  getDice: ({numSides}) => {
-    return new RandomDice(numSides || 6);
+// If Message had any complex fields, we'd put them on this object.
+class Message {
+  constructor(id, {content, author}) {
+    this.id = id;
+    this.content = content;
+    this.author = author;
   }
 }
 
@@ -40,8 +43,29 @@ var schema = buildSchema(`
   type Query {
     hello: String
     getDice(numSides: Int): RandomDice
+    getMessage(id: ID!): Message
   }
+
+  input MessageInput {
+    content: String
+    author: String
+  }
+  
+  type Message {
+    id: ID!
+    content: String
+    author: String
+  }
+  
+  type Mutation {
+    createMessage(input: MessageInput): Message
+    updateMessage(id: ID!, input: MessageInput): Message
+  }
+
+  
 `);
+
+var tempMsgStorage = {};
 
 // The root provides a resolver function for each API endpoint
 var root = {
@@ -50,7 +74,28 @@ var root = {
   },
   getDice: ({numSides}) => {
     return new RandomDice(numSides || 6);
-  }
+  },
+  getMessage: ({id}) => {
+    if (!tempMsgStorage[id]) {
+      throw new Error('no message exists with id ' + id);
+    }
+    return new Message(id, tempMsgStorage[id]);
+  },
+  createMessage: ({input}) => {
+    // Create a random id for our "database".
+    var id = require('crypto').randomBytes(10).toString('hex');
+
+    tempMsgStorage[id] = input;
+    return new Message(id, input);
+  },
+  updateMessage: ({id, input}) => {
+    if (!tempMsgStorage[id]) {
+      throw new Error('no message exists with id ' + id);
+    }
+    // This replaces all old data, but some apps might want partial update.
+    tempMsgStorage[id] = input;
+    return new Message(id, input);
+  },
 };
 
 var app = express();
