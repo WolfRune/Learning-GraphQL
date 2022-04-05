@@ -44,6 +44,7 @@ var schema = buildSchema(`
     hello: String
     getDice(numSides: Int): RandomDice
     getMessage(id: ID!): Message
+    ip: String
   }
 
   input MessageInput {
@@ -62,10 +63,13 @@ var schema = buildSchema(`
     updateMessage(id: ID!, input: MessageInput): Message
   }
 
-  
 `);
 
-var tempMsgStorage = {};
+const tempMsgStorage = {};
+const loggingMiddleware = (req, res, next) => {
+  console.log('ip:', req.ip);
+  next();
+}
 
 // The root provides a resolver function for each API endpoint
 var root = {
@@ -96,9 +100,13 @@ var root = {
     tempMsgStorage[id] = input;
     return new Message(id, input);
   },
+  ip: function (args, request) {
+    return request.ip;
+  }
 };
 
 var app = express();
+app.use(loggingMiddleware);
 app.use('/graphql', graphqlHTTP({
   schema: schema,
   rootValue: root,
