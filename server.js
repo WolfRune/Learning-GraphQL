@@ -1,4 +1,5 @@
 var express = require('express');
+var jwt = require('express-jwt');
 var { graphqlHTTP } = require('express-graphql');
 var { buildSchema } = require('graphql');
 
@@ -45,6 +46,7 @@ var schema = buildSchema(`
     getDice(numSides: Int): RandomDice
     getMessage(id: ID!): Message
     ip: String
+    getAdminToken: String
   }
 
   input MessageInput {
@@ -65,11 +67,12 @@ var schema = buildSchema(`
 
 `);
 
+const secretKey = 'replace-me-with-secret';
 const tempMsgStorage = {};
-const loggingMiddleware = (req, res, next) => {
+/*const loggingMiddleware = (req, res, next) => {
   console.log('ip:', req.ip);
   next();
-}
+}*/
 
 // The root provides a resolver function for each API endpoint
 var root = {
@@ -100,13 +103,22 @@ var root = {
     tempMsgStorage[id] = input;
     return new Message(id, input);
   },
-  ip: function (args, request) {
+  /*ip: function (args, request) {
     return request.ip;
+  },*/
+  getAdminToken: function () {
+    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhZG1pbiI6dHJ1ZX0.VCpvblvyghhwrKP8mVY3BcSgqpwrffZeT5BthyEvRcc";
   }
 };
 
 var app = express();
-app.use(loggingMiddleware);
+//app.use(loggingMiddleware);
+app.get('/admin',
+  jwt({ secret: secretKey, algorithms: ['HS256'], requestProperty: 'auth' }),
+  function(req, res) {
+    if (!req.auth.admin) return res.sendStatus(401);
+    res.sendStatus(200);
+  });
 app.use('/graphql', graphqlHTTP({
   schema: schema,
   rootValue: root,
